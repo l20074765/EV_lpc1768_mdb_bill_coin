@@ -555,6 +555,7 @@ static void DB_idSetRpt(void)
 	uint8 index = MT + 1,i;
 	uint8 xdata id[20] = {0};
 	for(i = 0;i < 20;i++){
+		id[i] = id[i];
 		id[i] = recvbuf[index++];
 	}
 //	DB_writeFlashId(id);

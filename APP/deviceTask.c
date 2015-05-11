@@ -69,8 +69,8 @@ void DEV_task(void *pdata)
 	stCoin.state.err |= COIN_ERR_COM;
 	
 	while(1){
-		Trace("bill:s=%d,err=%x\r\n",stBill.s.status,stBill.s.errNo);
-		Trace("coin:s=%d,err=%x\r\n",stCoin.state.s,stCoin.state.err);
+		print_dev("bill:s=%d,err=%x\r\n",stBill.s.status,stBill.s.errNo);
+		print_dev("coin:s=%d,err=%x\r\n",stCoin.state.s,stCoin.state.err);
 		coinTaskPoll();
 		billTaskPoll();
 		DB_task();
