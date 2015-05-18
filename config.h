@@ -68,6 +68,8 @@ extern "C" {
 #include ".\API\flashApi.h"
 #include ".\API\billApi.h"
 #include ".\API\coinApi.h"
+#include ".\API\hopperApi.h"
+#include ".\API\PcoinApi.h"
 #include ".\API\pcConApi.h"
 #ifdef __cplusplus
 	}

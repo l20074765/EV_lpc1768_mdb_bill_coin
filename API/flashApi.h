@@ -6,19 +6,6 @@
 //flash页号最大不超过 0x1FFF = 8191 否则 flash会翻转地址为0x0000
 //系统参数写入flash  add by yoc 2014.2.19
 #define ADD_SYSTEM_PARA     (256)  //预留256bytes空间存储
-//#define ADD_SYSTEM_PARA_LEN (2) // 32 * 8
-
-//用户级数据 写入flash地址
-#define ADD_USER_DATA		(512)
-//#define ADD_USER_LEN        (2)//用户级存储长度 256字节
-
-//货道信息存储
-#define ADD_HUODAO_INFO     (768)  //预留512bytes空间存储
-//#define ADD_HUODAO_LEN		(2) //货道存储长度 512字节
-
-//交易记录存储区间
-#define ADD_TRADE_INFO      (1280)
-#define ADD_TRADE_PAGE_LEN  (64)//每笔交易记录长度 64 字节
 
 
 //=======================货道类型存储==============================
@@ -39,6 +26,6 @@
 
 unsigned char saveFlash(unsigned int addr,unsigned char *buf,unsigned short len);
 unsigned char readFlash(unsigned int addr,unsigned char *buf,unsigned short len);
-
-
+unsigned char FM_writeToFlash(void);
+unsigned char FM_readFromFlash(void);
 #endif

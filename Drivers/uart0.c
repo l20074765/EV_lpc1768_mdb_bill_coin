@@ -19,7 +19,7 @@
 
 
 #define	UART0_BPS			9600
-#define	UART0BUFFERLEN		64
+#define	UART0BUFFERLEN		128
 
 volatile unsigned char Uart0RevBuff[UART0BUFFERLEN];
 volatile unsigned char Uart0RxdHead;

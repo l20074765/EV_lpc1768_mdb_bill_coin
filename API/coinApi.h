@@ -1,13 +1,13 @@
 #ifndef _COIN_API_H
 #define _COIN_API_H
 
-
+#include "..\Drivers\board.h"
 
 #define COIN_BIT_FAULT						0x01UL 	//π ’œ
 #define COIN_BIT_DISABLE					(0x01UL << 1) //Ω˚ƒ‹Œª
 #define COIN_BIT_QUEBI						(0x01UL << 2) //»±±“Œª
 #define COIN_BIT_BUSY						(0x01UL << 3) //”≤±“∆˜√¶Œª
-
+#define COIN_BIT_RESET						(0x01UL << 4) //”≤±“∆˜∏¥Œª
 #define COIN_BIT_OK							(0x01UL << 6) //”≤±“∆˜ª÷∏¥
 #define COIN_BIT_PAYBACK					(0x01UL << 7) //ÕÀ±“Œª
 
@@ -56,9 +56,8 @@ typedef struct _coin_state_{
 }COIN_STATE;
 
 typedef struct _coin_amount{
-	uint32 recvAmount;
-	uint32 oneAmount;
-	uint32 remainAmount;
+	uint32 recv_amount;
+	uint32 remain_amount;
 	uint8 payout;
 }COIN_AMOUNT;
 

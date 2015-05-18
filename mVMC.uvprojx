@@ -448,6 +448,16 @@
               <FileType>1</FileType>
               <FilePath>.\API\pcConApi.c</FilePath>
             </File>
+            <File>
+              <FileName>hopperApi.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\API\hopperApi.c</FilePath>
+            </File>
+            <File>
+              <FileName>PcoinApi.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\API\PcoinApi.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

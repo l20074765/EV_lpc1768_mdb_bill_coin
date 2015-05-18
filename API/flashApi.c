@@ -2,7 +2,7 @@
 #include "../config.h"
 
 
-
+static unsigned char buf[512];
 
 
 /*********************************************************************************************************
@@ -31,11 +31,68 @@ unsigned char readFlash(unsigned int page,unsigned char *buf,unsigned short len)
 {
 	if(!buf)
 		return 0;
-	
 	return I2C0RdNByte(0xa0,2,page,buf,len);
 }
 
 
+
+
+unsigned char FM_readFromFlash(void)
+{
+	unsigned short index = 0;
+	unsigned char i;
+	memset(buf,0,sizeof(buf));
+	readFlash(0x00,buf,256);
+	if(buf[index++] != 0xE5){
+		return 0;
+	}
+	stMdb.bill_type = buf[index++];
+	stMdb.coin_type = buf[index++];
+	stMdb.highEnable = buf[index++];
+	for(i = 0;i < 16;i++){
+		stPcoin.ch[i] = INTEG32(buf[index + 0],buf[index + 1],
+									buf[index + 2],buf[index + 3]);
+		index += 4;
+	}
+	
+	for(i = 0;i < HOPPER_NUMS;i++){
+		stHopper[i].ch = INTEG32(buf[index + 0],buf[index + 1],
+									buf[index + 2],buf[index + 3]);
+		index += 4;
+	}
+	return 1;
+}
+
+
+
+unsigned char FM_writeToFlash(void)
+{
+	unsigned short index = 0;
+	unsigned char i;
+	buf[index++] = 0xE5; // Ð£ÑéÂë
+	buf[index++] = stMdb.bill_type;
+	buf[index++] = stMdb.coin_type;
+	buf[index++] = stMdb.highEnable;
+	for(i = 0;i < 16;i++){
+		buf[index++] = H0UINT32(stPcoin.ch[i]);
+		buf[index++] = H1UINT32(stPcoin.ch[i]);
+		buf[index++] = L0UINT32(stPcoin.ch[i]);
+		buf[index++] = L1UINT32(stPcoin.ch[i]);
+	}
+	
+	for(i = 0;i < HOPPER_NUMS;i++){
+		buf[index++] = H0UINT32(stHopper[i].ch);
+		buf[index++] = H1UINT32(stHopper[i].ch);
+		buf[index++] = L0UINT32(stHopper[i].ch);
+		buf[index++] = L1UINT32(stHopper[i].ch);
+	}
+	
+	
+	
+
+	saveFlash(0x00,buf,index);
+	return 1;
+}
 
 
 

@@ -114,6 +114,14 @@ void TIMER1_IRQHandler (void)
 {
 	OSIntEnter();
 	T1IR = 1;
+	
+
+	if(MDB_getCoinAcceptor() == COIN_ACCEPTOR_PPLUSE)
+		PCOIN_scanParallelPluse();
+	else if(MDB_getCoinAcceptor() == COIN_ACCEPTOR_SPLUSE)	
+		PCOIN_scanSerialPluse(); 
+
+	
 	OSIntExit();
 }
 /*********************************************************************************************************

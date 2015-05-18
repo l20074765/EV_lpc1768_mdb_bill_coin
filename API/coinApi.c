@@ -2,6 +2,15 @@
 
 #include "coinApi.h"
 
+#define DEBUG_COIN
+
+#ifdef 	DEBUG_COIN
+#define print_coin(...)	Trace(__VA_ARGS__)
+#else
+#define print_coin(...)
+#endif
+
+
 #define MDB_COIN_RESET							0x08   		
 #define MDB_COIN_SETUP							0x09   		
 #define MDB_COIN_TUBE_STATUS					0x0A   	
@@ -92,6 +101,7 @@ static uint8 coin_setup(ST_DEV_COIN *coin)
 		//配置通道面值 以分为单位 0则表示该通道不存在
 		coin->tube.ch[i] = coin->tube.credit[i] * coin->rato;	
 	}
+	print_coin("Coin-setup:rato=%d\r\n",stCoin.rato);
 
 	return 1;
 }
@@ -113,7 +123,7 @@ static uint8 coin_tube_status(COIN_TUBE *tube)
 	if(res != 1)
 		return res;
 	tube->full = INTEG16(recvbuf[0], recvbuf[1]);
-	stCoin.amount.remainAmount = 0;
+	stCoin.amount.remain_amount = 0;
 	for(i = 0;i < 16;i++){
 		if(tube->routing & (0x01 << i)){
 			tube->num[i] = recvbuf[2 + i];
@@ -121,13 +131,44 @@ static uint8 coin_tube_status(COIN_TUBE *tube)
 		else{
 			tube->num[i] = 0;
 		}
-		stCoin.amount.remainAmount += tube->num[i] * stCoin.rato;
+		stCoin.amount.remain_amount += tube->num[i] * stCoin.tube.ch[i];
 	}
 	return res;
 }
 
 
+static uint8 coin_payout_value_poll(void)
+{
+	uint8 sbuf = 0x04,res;
+	res = coin_send(MDB_COIN_EXPANSION,&sbuf,1);
+	if(res == 1 && recvlen == 0){
+		return 1;
+	}
+	else{
+		return 0;
+	}
+}
 
+
+static uint8 coin_payout_status(uint32 *changedAmount)
+{
+	uint8 sbuf = 0x03,res,i;
+	uint32 amount;
+	res = coin_send(MDB_COIN_EXPANSION,&sbuf,1);
+	if(res == 1 && recvlen > 0){
+		amount = 0;
+		for(i = 0;i < 16;i++){
+			if(stCoin.tube.routing & (0x01 << i)){
+				amount += recvbuf[i] * stCoin.tube.ch[i];
+			}
+		}
+		*changedAmount = amount;
+		return 1;
+	}
+	else{
+		return 0;
+	}
+}
 
 /*********************************************************************************************************
 ** Function name:       coin_poll
@@ -156,8 +197,7 @@ static uint8 coin_poll(uint16 *errNo,uint8 *statusNo)
 				z2 = recvbuf[i++];
 				temp = (z1 >> 4) & 0x03;
 				if(temp == 0x00 || temp == 0x01){
-					stCoin.amount.oneAmount = stCoin.tube.ch[z1 & 0x0F];
-					stCoin.amount.recvAmount += stCoin.amount.oneAmount;
+					stCoin.amount.recv_amount += stCoin.tube.ch[z1 & 0x0F];
 				}
 			}
 			else{
@@ -192,6 +232,7 @@ static uint8 coin_poll(uint16 *errNo,uint8 *statusNo)
 							status |= COIN_BIT_BUSY;
 							break;			                 //changer busy   
 					    case 0x0B:
+							status |= COIN_BIT_RESET;
 							break;			                 //changer was reset//刚复位				   		   
 					   	case 0x0C:			                 //coin jam	//投币卡币
 					   		*errNo |=COIN_ERR_JAM;				   
@@ -274,45 +315,66 @@ uint8 coin_dispense(uint8 type,uint8 num)
 #endif
 
 
+
+
+
 /*********************************************************************************************************
 ** Function name:       coin_payout
 ** Descriptions:        level3找零操作
-** input parameters:    payNums 找零的枚数 是根据最低系数来获得的枚数
-** output parameters:   
-                        ch--各通道实际出币数量						
-** Returned value:      找零成功 1，失败0
+** input parameters:    payAmount 找零金额
+** output parameters:   					
+** Returned value:      返回实际找零金额
 *********************************************************************************************************/
-uint8 coin_payout(uint8 payNums,uint8 *ch)
+uint32 coin_payout(uint32 payAmount)
 {
-	uint8 res,sbuf[2]={0},i;
+	uint8 res,sbuf[2]={0},i,nums;
+	uint8 s;
+	uint16 err,e,nums16;
+	uint32 changedAmount = 0;
+	
+	if(stCoin.rato == 0){
+		return 0;
+	}
+	else{
+		nums16 = (payAmount / stCoin.rato); 
+		print_coin("Coin-payAmount=%d,rato=%d\r\n",payAmount,stCoin.rato);
+	}
+	nums = (nums16 > 100) ? 100 : (uint8)nums16; 
+	print_coin("Coin-payout:nums16=%d,nums=%d\r\n",nums16,nums);//最多一次找币100枚
 	sbuf[0] = MDB_COIN_PAYOUT;
-	sbuf[1] = payNums;	//amount / stCoin.rato;
-	res = coin_send(MDB_COIN_EXPANSION,sbuf,2);
-	if(res == 1)
-	{
-		Timer.coin_payout_timeout = payNums * 100 + 200;
-		while(Timer.coin_payout_timeout){					
-			sbuf[0] = 0x04;
-			res = coin_send(MDB_COIN_EXPANSION,sbuf,1);
-			if(res == 1 && recvlen == 0){//表明找零完成
-				msleep(100);
-				sbuf[0] = 0x03;
-				res = coin_send(MDB_COIN_EXPANSION,sbuf,1);
-				if(res == 1 && recvlen > 0){
-					for(i = 0;i < 16;i++){
-						if(stCoin.tube.routing & (0x01 << i)){
-							ch[i] = recvbuf[i];
-						}
-						else{
-							ch[i] = 0;
-						}
-					}
-					return 1;
-				}
-			}
-			msleep(100);
+	sbuf[1] = nums;
+	for(i = 0;i < 3;i++){
+		msleep(100);
+		res = coin_send(MDB_COIN_EXPANSION,sbuf,2);
+		if(res == 1){
+			break;
 		}
-	}				
+	}
+	if(res != 1){
+		return 0;
+	}
+	
+	while(1){	
+		msleep(100);
+		res = coin_poll(&e,&s);
+		err = (res == 0) ? err + 1 : 0;
+		if(err > 10){ //通信超时
+			print_coin("Coin-poll-timeout\r\n");
+			return 0;
+		}
+		msleep(100);
+		res = coin_payout_value_poll();
+		if(res == 1){ //表明找零完成
+			msleep(100);
+			res = coin_payout_status(&changedAmount);
+			if(res == 1){
+				print_coin("Coin-payoutStatus:changed=%d\r\n",changedAmount);
+				msleep(100);
+				coin_tube_status(&stCoin.tube); //刷新储币量
+				return changedAmount;
+			}
+		}
+	}
 	return 0;
 }
 
@@ -328,23 +390,27 @@ uint32 coinPayout(uint32 payMoney)
 {
 	uint32 xdata changedAmount = 0;
 	uint32 xdata payAmout = 0;
-	uint32 xdata oneAmount = 0;
+	uint32 xdata oneChangedAmount = 0;
 	uint16 xdata rato = stCoin.rato;
 	uint8 xdata ch[16] = {0};
 	uint8 xdata i;
+
 	
-	if(payMoney == 0 || rato == 0) 
+	if(payMoney == 0){ //检查 找币金额 是否符合
 		return 0;
+	} 
 	
 	payAmout = payMoney;
+	changedAmount = 0;
+	
 	while(1){
-		oneAmount = 0;
-		coin_payout(payAmout / rato,ch);
-		for(i = 0; i < 16; i++){
-			oneAmount +=  ch[i] * stCoin.tube.ch[i];		
-		}
-		changedAmount += oneAmount;
-		if(oneAmount == 0){
+		print_coin("StartPayout:payAmout=%d\r\n",payAmout);
+		oneChangedAmount = coin_payout(payAmout);
+		changedAmount += oneChangedAmount;
+		print_coin("payAmout=%d oneChanged=%d\r\n",payAmout,oneChangedAmount);
+		print_coin("TotalAmout=%d TotalChanged=%d\r\n",payMoney,changedAmount);
+		if(oneChangedAmount == 0){
+			print_coin("SPayout Over0.........\r\n\r\n");
 			return changedAmount;
 		}
 		if(payMoney > changedAmount){ //没找完
@@ -353,6 +419,7 @@ uint32 coinPayout(uint32 payMoney)
 			continue;
 		}
 		else{
+			print_coin("SPayout Over.........\r\n\r\n");
 			return changedAmount; 
 		}
 	}
@@ -419,7 +486,7 @@ static uint8 coin_identifict(COIN_IDENTIFICT *identifict)
 
 	identifict->manufacturerCode[0] = recvbuf[index++];
 	identifict->manufacturerCode[1] = recvbuf[index++];
-	
+	identifict->manufacturerCode[2] = recvbuf[index++];
 	for(i = 0;i < 12;i++){
 		identifict->sn[i] = recvbuf[index++];
 	}
@@ -458,15 +525,24 @@ uint8 coin_feature_enable()
 *********************************************************************************************************/
 uint8 coinInit(void)
 {
-	uint8 res,statusNo;
+	uint8 res,statusNo,i;
 	uint16 errNo;
 	ST_DEV_COIN *coin = &stCoin;
 	
 	res = coin_reset();
 	if(res != 1)
 		return res;
-	msleep(150);
-	res = coin_poll(&errNo, &statusNo);
+	for(i = 0;i < 50;i++){
+		msleep(150);
+		res = coin_poll(&errNo, &statusNo);
+		if(statusNo & COIN_BIT_RESET){ //收到复位信号
+			break;
+		}
+	}
+	if(i >= 50){
+		return 0;
+	}
+	
 	msleep(150);
 	res = coin_feature_enable();
 	msleep(150);
@@ -491,13 +567,13 @@ uint8 coinTaskPoll(void)
 	static uint8 flush = 0,comErr = 5;
 	uint8 res,s;
 	uint16 err;
-	COIN_STATE *coinState = &stCoin.state;
-	if((coinState->s & COIN_BIT_FAULT) && (coinState->err & COIN_ERR_COM)){
+	COIN_STATE *status = &stCoin.state;
+	if((status->s & COIN_BIT_FAULT) && (status->err & COIN_ERR_COM)){
 		if(Timer.timer_coin_reset == 0){
 			res = coinInit();
 			if(res == 1){
-				coinState->err = 0;
-				coinState->s = COIN_BIT_DISABLE;
+				status->err = 0;
+				status->s = COIN_BIT_DISABLE;
 			}
 			else{
 				Timer.timer_coin_reset = 1000;
@@ -509,22 +585,22 @@ uint8 coinTaskPoll(void)
 			case 0:case 2:case 4:case 6:
 				res = coin_poll(&err, &s);
 				if(s & COIN_BIT_PAYBACK){
-					coinState->s |= COIN_BIT_PAYBACK;
+					status->s |= COIN_BIT_PAYBACK;
 				}
 				if(err){
-					coinState->err |= err;
-					coinState->s |= COIN_BIT_FAULT;
+					status->err |= err;
+					status->s |= COIN_BIT_FAULT;
 				}
 				break;
 			case 1:case 3:case 5:case 7:
 				res = coin_expansion_status(&err,&s);
 				if(err){
-					coinState->err |= err;
-					coinState->s |= COIN_BIT_FAULT;
+					status->err |= err;
+					status->s |= COIN_BIT_FAULT;
 				}
 				if(s & COIN_BIT_OK){ //硬币器从故障恢复
-					coinState->s &= ~COIN_BIT_FAULT;
-					coinState->err = 0;
+					status->s &= ~COIN_BIT_FAULT;
+					status->err = 0;
 				}
 				break;
 			case 8:
@@ -535,11 +611,11 @@ uint8 coinTaskPoll(void)
 				res = 1;
 				break;
 		}
-		
 		comErr = (res == 0) ? (comErr >= 5 ? 5 : comErr + 1) : 0;//超时
+		
 		if(comErr >= 5){
-			coinState->s |= COIN_BIT_FAULT;
-			coinState->err |= COIN_ERR_COM;
+			status->s |= COIN_BIT_FAULT;
+			status->err |= COIN_ERR_COM;
 		}
 		flush++;
 	}	

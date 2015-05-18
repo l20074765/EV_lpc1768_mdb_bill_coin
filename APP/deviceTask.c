@@ -1,7 +1,7 @@
 #include "deviceTask.h"
 #include "..\config.h"
 
-//#define DEV_DEBUG
+#define DEV_DEBUG
 #ifdef DEV_DEBUG
 
 #define print_dev(...)	Trace(__VA_ARGS__)
@@ -56,25 +56,37 @@ void SystemInit()
 
 void DEV_task(void *pdata)
 {	
+	uint8 temp;
 	SystemInit();//系统基本接口初始化
 	CreateMBox();//建立邮箱、信号量	
 	memset((void *)&stBill,0,sizeof(stBill));
 	memset((void *)&stCoin,0,sizeof(stCoin));
 	memset((void *)&stMdb,0,sizeof(stMdb));
-	stMdb.billType = 2;
-	stMdb.coinType = 2;
-	stBill.s.status |= BILL_BIT_FAULT;
-	stBill.s.errNo |= BILL_ERR_COM;
-	stCoin.state.s |= COIN_BIT_FAULT;
-	stCoin.state.err |= COIN_ERR_COM;
 	
+	FM_readFromFlash();
+	MDB_billInit();
+	MDB_coinInit();
 	while(1){
 		print_dev("bill:s=%d,err=%x\r\n",stBill.s.status,stBill.s.errNo);
 		print_dev("coin:s=%d,err=%x\r\n",stCoin.state.s,stCoin.state.err);
-		coinTaskPoll();
-		billTaskPoll();
-		DB_task();
+		
+		temp = MDB_getBillAcceptor();
+		if(temp == BILL_ACCEPTOR_MDB){
+			billTaskPoll();
+		}
+
+		temp = MDB_getCoinAcceptor();
+		if(temp == COIN_ACCEPTOR_MDB){
+			coinTaskPoll();
+		}
+		
+		temp = MDB_getCoinDispenser();
+		if(temp == COIN_DISPENSER_HOPPER){
+			HP_task();
+		}	
+		DB_task();	
 		msleep(100);
+		
 	}
 }
 
