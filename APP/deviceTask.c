@@ -62,14 +62,10 @@ void DEV_task(void *pdata)
 	memset((void *)&stBill,0,sizeof(stBill));
 	memset((void *)&stCoin,0,sizeof(stCoin));
 	memset((void *)&stMdb,0,sizeof(stMdb));
-	
 	FM_readFromFlash();
 	MDB_billInit();
 	MDB_coinInit();
 	while(1){
-		print_dev("bill:s=%d,err=%x\r\n",stBill.s.status,stBill.s.errNo);
-		print_dev("coin:s=%d,err=%x\r\n",stCoin.state.s,stCoin.state.err);
-		
 		temp = MDB_getBillAcceptor();
 		if(temp == BILL_ACCEPTOR_MDB){
 			billTaskPoll();

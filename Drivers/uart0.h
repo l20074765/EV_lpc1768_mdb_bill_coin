@@ -20,16 +20,25 @@
 #ifndef __UART0_H 
 #define __UART0_H
 
+#define MDB_UART_COM		1   //串口MDB通信开口
+
+#if MDB_UART_COM == 1
+void InitUart0(void);
+unsigned char uart0_getCmd(unsigned char *data);
+void Uart0IsrHandler(void);
+void Uart0PutChar(unsigned char ch);
+void Uart0PutStr(unsigned char const *Str, unsigned int Len);
+void Trace(unsigned char *format,...);
+#else
 void InitUart0(void);
 void Uart0IsrHandler(void);
 void Uart0PutChar(unsigned char ch);
 void Uart0PutStr(unsigned char const *Str, unsigned int Len);
+void Trace(unsigned char *format,...);
 unsigned char Uart0BuffIsNotEmpty(void);
 unsigned char Uart0GetCh(void);
 void ClrUart0Buff(void) ;
-//以下两函数做Uart0的调试输出
-void PrintLog(unsigned char *str);
-void Trace(unsigned char *format,...);
+#endif
 
 #endif
 /**************************************End Of File*******************************************************/

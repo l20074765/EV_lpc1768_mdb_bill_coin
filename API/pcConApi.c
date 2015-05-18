@@ -350,7 +350,7 @@ void DB_package(uint8 mt,uint8 len)
 *********************************************************************************************************/
 void DB_uart1Send(void)
 {
-	ClrUart0Buff();
+	//ClrUart0Buff();
 	Uart0PutStr(sendbuf,sendbuf[LEN] + 1);
 }
 
@@ -366,43 +366,7 @@ void DB_uart1Send(void)
 *********************************************************************************************************/
 uint8 DB_uart1Recv(void)
 {
-	uint8 xdata ch,index = 0,len = MT;
-	uint8 xdata crc;
-	if(!Uart0BuffIsNotEmpty()){
-		return 0;
-	}
-	
-	memset(recvbuf,0,sizeof(recvbuf));
-	Timer.db_recv_timeout = 20;
-	while(Timer.db_recv_timeout){
-		if(Uart0BuffIsNotEmpty()){
-			ch = Uart0GetCh();
-			recvbuf[index++] = ch;
-			if(index == (SF + 1)){
-				if(ch != HEAD_PC ) {
-					return 0;
-				}
-			}
-			else if(index == (LEN + 1)){
-				len = ch;
-			}		
-			else if(index >= (len + 1)){
-				break;
-			}
-		}
-	}
-	
-	if(!Timer.db_recv_timeout){
-		return 3;
-	}
-	crc = xorCheck(recvbuf,len);
-	if(crc != recvbuf[len]){
-		return 2;
-	}
-	else{
-		return 1;//正确接收包
-	}
-	
+	return uart0_getCmd(recvbuf);
 }
 
 
@@ -865,7 +829,7 @@ static void DB_coin_info_rpt()
 *********************************************************************************************************/
 static void DB_init_rpt()
 {	
-	uint8 temp,type;
+	uint8 temp;
 	sendbuf[MT + 1] = recvbuf[MT + 1];
 	sendbuf[MT + 2] = recvbuf[MT + 2];
 	sendbuf[MT + 3] = 0;

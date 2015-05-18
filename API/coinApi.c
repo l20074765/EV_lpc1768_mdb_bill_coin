@@ -191,6 +191,7 @@ static uint8 coin_poll(uint16 *errNo,uint8 *statusNo)
 		z1 = recvbuf[i++];
 		if(z1 & (0x01 << 7)){
 			z2 = recvbuf[i++];
+			z2 = z2;
 		}
 		else{
 			if(z1 & (0x01 << 6)){
@@ -353,7 +354,6 @@ uint32 coin_payout(uint32 payAmount)
 	if(res != 1){
 		return 0;
 	}
-	
 	while(1){	
 		msleep(100);
 		res = coin_poll(&e,&s);
@@ -375,7 +375,6 @@ uint32 coin_payout(uint32 payAmount)
 			}
 		}
 	}
-	return 0;
 }
 
 /*********************************************************************************************************
@@ -391,9 +390,7 @@ uint32 coinPayout(uint32 payMoney)
 	uint32 xdata changedAmount = 0;
 	uint32 xdata payAmout = 0;
 	uint32 xdata oneChangedAmount = 0;
-	uint16 xdata rato = stCoin.rato;
-	uint8 xdata ch[16] = {0};
-	uint8 xdata i;
+
 
 	
 	if(payMoney == 0){ //检查 找币金额 是否符合

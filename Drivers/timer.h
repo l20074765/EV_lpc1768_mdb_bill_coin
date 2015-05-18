@@ -28,6 +28,7 @@ typedef struct _timer_st_{
 	unsigned short bill_payout_timeout;
 	unsigned short bill_status_timeout;
 	unsigned short db_recv_timeout;
+	unsigned short uart0_timeout;
 	unsigned short hopper_recv_timeout;
 	unsigned short hopper_payout_timeout;
 	unsigned short hopper_check_timeout;

@@ -531,8 +531,7 @@ uint32 bill_recycler_dispense_status(void)
 *********************************************************************************************************/
 uint8 bill_recycler_dispense_poll(uint8 *finished)
 {
-	uint8 wdata[8] = {0x00},res,index = 0,i;
-	uint16 temp;
+	uint8 wdata[8] = {0x00},res;
 	wdata[0] = 0x09;//type
 	res = bill_send(MDB_BILL_EXPANSION,wdata,1);	
 	if(res != 1)
@@ -542,7 +541,7 @@ uint8 bill_recycler_dispense_poll(uint8 *finished)
 		*finished = 1;
 	}
 	else{
-		temp = INTEG16(recvbuf[index + 0],recvbuf[index + 1]);
+		//temp = INTEG16(recvbuf[index + 0],recvbuf[index + 1]);
 		*finished = 0;
 	}
 	return 1;
