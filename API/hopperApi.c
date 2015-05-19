@@ -11,20 +11,15 @@
 
 
 
-ST_HOPPER stHopper[HOPPER_NUMS];//定义三个hopper斗 结构体数组
-
+ST_HOPPER stHopper[HP_SUM];//定义8个hopper斗 结构体数组
 //定义hopper级别 结构体数组 按数组依次划分级别 1 > 2 > 3
 //例如 hopper1 hopper2 通道面值 1元 hopper3 通道面值为 5毛 则 hopper1 hopper2
 //划分在级别1中,hopper3 划分在级别2中  级别3为空  即
-ST_HOPPER_LEVEL stHopperLevel[HOPPER_NUMS];
+ST_HOPPER_LEVEL stHopperLevel[HP_SUM];
 
-static uint8  sn=0;
 static volatile uint8 sendbuf[64] = {0};
 static volatile uint8 recvbuf[64] = {0};
-
-
-
-
+static uint8 sn[HP_SUM] = {0};
 
 
 /*********************************************************************************************************
@@ -39,18 +34,18 @@ uint8 HP_send(uint8 addr,uint8 cmd,uint16 data)
 	uint8 index = 0,i,ch,len,crc;
 	memset((void *)recvbuf,0,sizeof(recvbuf));
 	
-	sn = (cmd == HP_PAYOUT) ? sn + 1: sn; //更新sn
+	sn[addr] = (cmd == HP_PAYOUT) ? sn[addr] + 1: sn[addr]; //更新sn
 	
 	sendbuf[index++] = 0xED;
 	sendbuf[index++] = 0x08; //len
-	sendbuf[index++] = sn;
+	sendbuf[index++] = sn[addr];
 	sendbuf[index++] = cmd;
 	sendbuf[index++] = addr;
 	sendbuf[index++] = LUINT16(data);
 	sendbuf[index++] = HUINT16(data);
 	sendbuf[index++] = XorCheck((uint8 *)sendbuf,7);
 	
-	
+	uart3_clr_buf();
 	//发送数据禁止切换任务
 	OSSchedLock();
 	Uart3PutStr((uint8 *)sendbuf,8);
@@ -144,11 +139,9 @@ uint8 HP_send_check(ST_HOPPER *hopper)
 			hopper->lastCount = INTEG16(recvbuf[6], recvbuf[5]);
 			return 1;
 		}
-		
-		return 0;			
+		return 99;			
 	}
 	
-	hopper->state = HP_STATE_COM; //通信失败
 	return 0;	
 }
 
@@ -189,28 +182,25 @@ void HP_init(void)
 {
 	uint8 i,j,levelNum = 0;
 	uint32 value;
-	for(i = 0; i < HOPPER_NUMS;i++){
+	for(i = 0; i < HP_SUM;i++){
 		value = stHopper[i].ch;
 		memset((void *)&stHopper[i],0,sizeof(ST_HOPPER));
 		memset((void *)&stHopperLevel[i],0,sizeof(ST_HOPPER_LEVEL));
-		
 		stHopper[i].ch = value;
 		stHopper[i].addr = i;
-		
 	}
 	
 	//级别分配
-	for(i = 0;i < HOPPER_NUMS;i++){
+	for(i = 0;i < HP_SUM;i++){
 		value = 0;
-		//查询未分配级别中的最大斗
-		for(j = 0;j < HOPPER_NUMS;j++){
+		for(j = 0;j < HP_SUM;j++){ //查询未分配级别中的最大斗
 			if(!stHopper[j].level && value < stHopper[j].ch){
 				value = stHopper[j].ch;
 			}
 		}
 		stHopperLevel[i].ch = value;
 		if(value){
-			for(j = 0;j < HOPPER_NUMS;j++){   //查询相同 面值的斗 进行分配
+			for(j = 0;j < HP_SUM;j++){   //查询相同 面值的斗 进行分配
 				if(value == stHopper[j].ch){
 					levelNum = stHopperLevel[i].num++;
 					stHopperLevel[i].hopper[levelNum] = &stHopper[j];
@@ -219,9 +209,10 @@ void HP_init(void)
 			}
 		}
 		
-		print_hopper("levelNo=%d num =%d value = %d\r\n",
+		print_hopper("Level=%d num =%d value = %d\r\n",
 			i,stHopperLevel[i].num,stHopperLevel[i].ch);
 	}
+	
 
 	print_hopper("hopperInit over..\r\n");
 }
@@ -231,7 +222,7 @@ void HP_init(void)
 
 uint8 HP_setCh(uint8 no,uint32 value)
 {
-	if(no > HOPPER_NUMS || no == 0){
+	if(no > HP_SUM || no == 0){
 		return 0;
 	}
 	stHopper[no - 1].ch = value;
@@ -242,7 +233,7 @@ uint8 HP_setCh(uint8 no,uint32 value)
 /*********************************************************************************************************
 ** Function name:     	HP_payout_by_addr
 ** Descriptions:	    hopper按地址找零
-** input parameters:    无
+** input parameters:    num 需要找币数量
 ** output parameters:   无
 ** Returned value:      无
 *********************************************************************************************************/
@@ -281,33 +272,35 @@ uint8 HP_payout_by_addr(ST_HOPPER *hopper,uint16 num)
 						levelNo :选择哪个级别斗 找零
 ** Returned value:      1：兑币成功；0：失败
 *********************************************************************************************************/
-uint8  HP_payout_by_level(uint8 level,uint16 payCount,uint16 *remainCount)
+uint8  HP_payout_by_level(uint8 l,uint16 payCount,uint16 *changedCount)
 {
 	uint8 i,cycleFlag = 0,res;
-	uint16 changedCount = 0;//已找零金额
+	uint16 payCountTemp = 0;
+	
 	ST_HOPPER *hopper;
+	
+	*changedCount = 0;
 	if(payCount == 0){
-		*remainCount = 0;
+		*changedCount = 0;
 		return 1;
 	}
 	
 	//断言 hopper斗号是否符合
-	if(level > HOPPER_NUMS){
-		*remainCount = payCount;
-		print_hopper("The level = %d > %d(max) \r\n",level,HOPPER_NUMS);
+	if(l >= HP_SUM){
+		*changedCount = 0;
+		print_hopper("The level = %d > %d(max) \r\n",l,HP_SUM);
 		return 0;
 	}
 	
-	if(stHopperLevel[level - 1].num  == 0) { //没有可用的斗
-	
-		print_hopper("The level = %d useableNum = is 0 \r\n",level);
-		*remainCount = payCount;
+	if(stHopperLevel[l].num  == 0) { //没有可用的斗
+		print_hopper("The level = %d useableNum = is 0 \r\n",l);
+		*changedCount = 0;
 		return 0;
 	}
 	
 	//查询是否有循环斗
-	for(i = 0; i < stHopperLevel[level - 1].num;i++){
-		hopper = stHopperLevel[level - 1].hopper[i];
+	for(i = 0; i < stHopperLevel[l].num;i++){
+		hopper = stHopperLevel[l].hopper[i];
 		if(hopper->isCycle && hopper->state == HP_STATE_NORMAL){
 			cycleFlag = 1;
 			break;
@@ -315,50 +308,40 @@ uint8  HP_payout_by_level(uint8 level,uint16 payCount,uint16 *remainCount)
 	}
 	
 	if(cycleFlag){	//有循环斗 优先让循环斗出币
-		hopper = stHopperLevel[level - 1].hopper[i];
+		hopper = stHopperLevel[l].hopper[i];
 		res = HP_payout_by_addr(hopper,payCount);
 		if(res == 1){
-			*remainCount  = 0;
+			*changedCount  += payCount;
 			return 1;
 		}
 		else{
-			changedCount += hopper->lastCount;	//循环斗找零失败 再找其他斗	
+			*changedCount += hopper->lastCount;	//循环斗找零失败 再找其他斗	
 		}
 	}
 	
 	//没有循环斗 则随便选择一个可用的斗 出币
-	for(i = 0; i < stHopperLevel[level - 1].num;i++)
+	for(i = 0; i < stHopperLevel[l].num;i++)
 	{	
-		hopper = stHopperLevel[level - 1].hopper[i];
-		if(hopper->fault >= HOPPER_FAULT_NUM)//检查设备不可用跳出
+		hopper = stHopperLevel[l].hopper[i];
+		if(hopper->lastPayFail >= HP_PAYFAIL_NUM)//检查设备上次找零失败
 			continue;
-		res = HP_payout_by_addr(hopper,payCount - changedCount);
-		print_hopper("Select--level = %d addr= %d res =%d\r\n",level,hopper->addr,res);
+		payCountTemp = payCount - *changedCount;
+		res = HP_payout_by_addr(hopper,payCountTemp);
+		print_hopper("Select--level = %d addr= %d res =%d\r\n",l,hopper->addr,res);
 		if(res == 1){
-			*remainCount  = 0;
-			hopper->fault =  0;//故障清除
+			*changedCount  += payCountTemp;
+			hopper->lastPayFail =  0;//故障清除
 			return 1;
 		}
 		else{
-			changedCount +=	hopper->lastCount;
+			*changedCount += hopper->lastCount;
 			print_hopper("PayCount = %d,hopper[%d]->lastCount =%d,changedCount =%d\r\n",
-					payCount,i,hopper->lastCount,changedCount);
+					payCount,i,hopper->lastCount,*changedCount);
 			//到此表示该斗 已经无法找币 置特殊故障并标记		
-			hopper->fault++;//故障+1
+			hopper->lastPayFail++;//故障+1
 		}				
 	}
-	//查询本级别所有可用的斗 出币后的最终的失败情况
-	if(payCount >= changedCount){
-		*remainCount = payCount - changedCount;
-	}
-	else{
-		*remainCount = 0;
-	}
-	
 	return 0;
-		
-	
-	
 }
 
 
@@ -372,50 +355,83 @@ uint8  HP_payout_by_level(uint8 level,uint16 payCount,uint16 *remainCount)
 *********************************************************************************************************/
 uint32 HP_payout(uint32 payAmount)
 {
-	uint8 i;
-	uint16 remainCount = 0,payCount = 0;
-	uint32 remainAmount;
+	uint8 i,res;
+	uint16 changedCount = 0,payCount = 0;
+	uint32 changedAmount;
 	
-	remainAmount = payAmount;
+	changedAmount = 0;
 	//硬币器找零算法
-	for(i = HOPPER_NUMS;i > 0;i--){
-		if(stHopperLevel[i - 1].ch > 0){
-			remainAmount  = payAmount % stHopperLevel[i - 1].ch;
-			 payCount = payAmount / stHopperLevel[i - 1].ch;
-			 print_hopper("Coin level[%d].payCount = %d \r\n",i-1,payCount);
-			
-			 if(HP_payout_by_level(i,payCount,&remainCount) == 1){
-				if(remainAmount == 0)
-					return payAmount;		
-			 }
-			 else{
-				 payAmount = remainAmount  + remainCount * stHopperLevel[i - 1].ch;
-				 remainAmount = payAmount;
-			 }
+	for(i = 0;i < HP_SUM;i++){
+		if(stHopperLevel[i].ch > 0){
+			payCount = payAmount / stHopperLevel[i].ch; //计算找币数量
+			print_hopper("Coin level[%d].payCount = %d \r\n",i,payCount);
+			res = HP_payout_by_level(i,payCount,&changedCount);
+			changedAmount += changedCount * stHopperLevel[i].ch;
+			if(changedAmount <= payAmount)
+				payAmount = payAmount - changedAmount;
+			else
+				payAmount = 0;
+			//找零成功
+			if(res == 1 && payAmount == 0){
+					return changedAmount;		
+			}
 		}
 	}
-	
-	if(payAmount >= remainAmount){
-		payAmount -= remainAmount;
-	}
-	else{
-		payAmount = 0;
-	}
-	
-	return payAmount;	
+	//找零不成功
+	return changedAmount;	
 }
 
 
+static uint8 HP_getCheckNo(void)
+{
+	static uint8 no = 0;
+	uint8 i ;
+	for(i = no;i < HP_SUM;i++){
+		if(stHopper[i].ch > 0){
+			no = i + 1;
+			return i;
+		}
+	}
+	
+	for(i = 0;i < no;i++){
+		if(stHopper[i].ch > 0){
+			no = i + 1;
+			return i;
+		}
+	}
+	
+	return 0xFF;
+}
+
+static uint16 HP_getCheckTimer(void)
+{
+	uint16 time;
+	uint8 i;
+	time = 120;
+	for(i = 0;i < HP_SUM;i++){
+		if(stHopper[i].ch > 0){
+			time = (time <= 50) ? 50 : time - 10;
+		}
+	}
+	return time;
+}
 
 uint8 HP_allHopperCheck(void){
 	uint8 i = 0;
 	if(Timer.hopper_check_timeout == 0){
-		for(i = 0;i < HOPPER_NUMS;i++){
-			if(stHopper[i].ch > 0){
-				HP_send_check(&stHopper[i]);
+		i = HP_getCheckNo();
+		if(i != 0xFF){
+			if(HP_send_check(&stHopper[i]) == 0){
+				stHopper[i].err_com = (stHopper[i].err_com < 100) ? stHopper[i].err_com + 1: 100;
+			}
+			else{
+				stHopper[i].err_com = 0;
+			}
+			if(stHopper[i].err_com >= 5){
+				stHopper[i].state = HP_STATE_COM; //通信失败
 			}
 		}
-		Timer.hopper_check_timeout = 500;//3秒检测一个斗
+		Timer.hopper_check_timeout = HP_getCheckTimer();//3秒检测一个斗
 	}
 	return 1;
 }

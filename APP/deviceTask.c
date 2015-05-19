@@ -57,6 +57,8 @@ void SystemInit()
 void DEV_task(void *pdata)
 {	
 	uint8 temp;
+
+	
 	SystemInit();//系统基本接口初始化
 	CreateMBox();//建立邮箱、信号量	
 	memset((void *)&stBill,0,sizeof(stBill));
@@ -65,6 +67,7 @@ void DEV_task(void *pdata)
 	FM_readFromFlash();
 	MDB_billInit();
 	MDB_coinInit();
+	
 	while(1){
 		temp = MDB_getBillAcceptor();
 		if(temp == BILL_ACCEPTOR_MDB){
@@ -81,8 +84,7 @@ void DEV_task(void *pdata)
 			HP_task();
 		}	
 		DB_task();	
-		msleep(100);
-		
+		msleep(90);
 	}
 }
 

@@ -55,7 +55,7 @@ unsigned char FM_readFromFlash(void)
 		index += 4;
 	}
 	
-	for(i = 0;i < HOPPER_NUMS;i++){
+	for(i = 0;i < HP_SUM;i++){
 		stHopper[i].ch = INTEG32(buf[index + 0],buf[index + 1],
 									buf[index + 2],buf[index + 3]);
 		index += 4;
@@ -80,7 +80,7 @@ unsigned char FM_writeToFlash(void)
 		buf[index++] = L1UINT32(stPcoin.ch[i]);
 	}
 	
-	for(i = 0;i < HOPPER_NUMS;i++){
+	for(i = 0;i < HP_SUM;i++){
 		buf[index++] = H0UINT32(stHopper[i].ch);
 		buf[index++] = H1UINT32(stHopper[i].ch);
 		buf[index++] = L0UINT32(stHopper[i].ch);

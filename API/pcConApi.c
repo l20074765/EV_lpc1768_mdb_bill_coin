@@ -473,6 +473,7 @@ static uint8 MDB_getCoinStatus(void)
 static uint16 MDB_getCoinErrNo(void)
 {
 	uint8 temp = MDB_getCoinAcceptor();
+	uint8 i;
 	uint16 errNo = 0;
 	if(temp == COIN_ACCEPTOR_MDB){
 		errNo = stCoin.state.err;	 
@@ -480,8 +481,10 @@ static uint16 MDB_getCoinErrNo(void)
 	else{
 		temp = MDB_getCoinDispenser();
 		if(temp == COIN_DISPENSER_HOPPER){
-			errNo = (stHopper[0].state << 0 ) | (stHopper[1].state << 2 ) |	
-						(stHopper[2].state << 4 ) ;	
+			errNo = 0;
+			for(i = 0;i < HP_SUM;i++){
+				errNo |= (stHopper[i].state << i*2);
+			}
 		}
 		else{
 			errNo = 0;
@@ -799,10 +802,11 @@ static void DB_coin_info_rpt()
 		
 		//ch_d
 		if(MDB_getCoinDispenser() == COIN_DISPENSER_HOPPER){
-			sendbuf[index++] = pcEncodAmount(stHopper[0].ch);
-			sendbuf[index++] = pcEncodAmount(stHopper[1].ch);
-			sendbuf[index++] = pcEncodAmount(stHopper[2].ch);
-			for(i = 0;i < 13;i++){
+			for(i = 0;i < HP_SUM;i++){
+				sendbuf[index++] = pcEncodAmount(stHopper[i].ch);
+			}
+			
+			for(i = HP_SUM;i < 16;i++){
 				sendbuf[index++] = 0;
 			}
 		}
@@ -988,8 +992,11 @@ static void DB_bill_con_rpt(void)
 	sendbuf[in++] = 1;	
 	DB_package(DB_MT_ACTION_RPT,in);
 	DB_uart1Send();
+	FM_readFromFlash();
 }
 
+
+//ÅäÖÃÓ²±ÒÉè±¸
 static void DB_coin_con_rpt(void)
 {
 	uint8 in = MT + 1,out = MT + 2,i;
@@ -1006,7 +1013,7 @@ static void DB_coin_con_rpt(void)
 	}
 	
 	if(MDB_getCoinDispenser() == COIN_DISPENSER_HOPPER){
-		for(i = 0;i < HOPPER_NUMS;i++){
+		for(i = 0;i < HP_SUM;i++){
 			stHopper[i].ch = pcAnalysisAmount(recvbuf[out++]);
 		}
 	}
@@ -1019,6 +1026,7 @@ static void DB_coin_con_rpt(void)
 	sendbuf[in++] = 1;
 	DB_package(DB_MT_ACTION_RPT,in);
 	DB_uart1Send();
+	FM_readFromFlash();
 }
 
 
