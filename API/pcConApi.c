@@ -242,15 +242,30 @@ uint8 MDB_coinInit(void)
 //”≤±“’“¡„
 uint32 MDB_coin_payout(uint32 payAmount)
 {
-	uint8 type;
+	uint8 type,c_enable,b_enable;
 	uint32 xdata changedAmount;
 	if(payAmount == 0){
 		return 0;
 	}
 
 	changedAmount = 0;
-	MDB_billEnable(0);
-	MDB_coinEnable(0);
+	
+	if(stBill.s.status & BILL_BIT_DISABLE){
+		b_enable = 0;
+	}
+	else{
+		b_enable = 1;
+		MDB_billEnable(0);
+	}
+	
+	if(stCoin.state.s & COIN_BIT_DISABLE){
+		c_enable = 0;
+	}
+	else{
+		c_enable = 1;
+		MDB_coinEnable(0);
+	}
+	
 	msleep(100);
 	
 	type = MDB_getCoinDispenser();
@@ -265,8 +280,14 @@ uint32 MDB_coin_payout(uint32 payAmount)
 	}
 	
 	msleep(100);
-	MDB_billEnable(1);
-	MDB_coinEnable(1);
+	
+	if(c_enable == 1){
+		MDB_coinEnable(1);
+	}
+	
+	if(b_enable == 1){
+		MDB_billEnable(1);
+	}
 
 	return changedAmount;
 }
@@ -276,7 +297,7 @@ uint32 MDB_coin_payout(uint32 payAmount)
 uint32 MDB_bill_payout(uint32 payAmount)
 {
 	uint32 xdata changedAmount,payout_amount;
-	uint8 i;
+	uint8 i,b_enable = 0,c_enable = 0;
 	uint16 j,count;
 	uint32 ch;
 	if(payAmount == 0){
@@ -311,13 +332,34 @@ uint32 MDB_bill_payout(uint32 payAmount)
 		return 0;
 	}
 	
-	MDB_coinEnable(0);
-	MDB_billEnable(0);
+	if(stBill.s.status & BILL_BIT_DISABLE){
+		b_enable = 0;
+	}
+	else{
+		b_enable = 1;
+		MDB_billEnable(0);
+	}
+	
+	if(stCoin.state.s & COIN_BIT_DISABLE){
+		c_enable = 0;
+	}
+	else{
+		c_enable = 1;
+		MDB_coinEnable(0);
+	}
+	
 	msleep(100);
 	changedAmount = bill_recycler_payout_by_value(payout_amount);
 	msleep(100);
-	MDB_coinEnable(1);
-	MDB_billEnable(1);
+	if(c_enable == 1){
+		MDB_coinEnable(1);
+	}
+	
+	if(b_enable == 1){
+		MDB_billEnable(1);
+	}
+	
+	
 	return changedAmount;
 	
 	
@@ -840,10 +882,10 @@ static void DB_init_rpt()
 	sendbuf[MT + 4] = 0;
 	temp = recvbuf[MT + 2];
 	if(temp & OBJ_BILL){
-		sendbuf[MT + 3] = MDB_coinInit();	
+		sendbuf[MT + 3] = MDB_billInit();
 	}
 	if(temp & OBJ_COIN){
-		sendbuf[MT + 4] = MDB_billInit();
+		sendbuf[MT + 4] = MDB_coinInit();	
 	}
 	//FM_writeToFlash();
 	DB_package(DB_MT_ACTION_RPT,MT + 5);
