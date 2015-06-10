@@ -263,6 +263,40 @@ uint8 HP_payout_by_addr(ST_HOPPER *hopper,uint16 num)
 	
 }
 
+/*********************************************************************************************************
+** Function name:     	HP_payout_by_addr
+** Descriptions:	    hopper按地址找零
+** input parameters:    num 需要找币数量
+** output parameters:   无
+** Returned value:      无
+*********************************************************************************************************/
+uint16 HP_payout_by_no(uint8 addr,uint16 num)
+{
+	uint8 res;
+	ST_HOPPER *hopper;
+	if(addr <= 0 || addr > HP_SUM || num == 0){
+		return 0;
+	}
+	
+	hopper = &stHopper[addr - 1];
+	res = HP_send_output(hopper,num);
+	if(res != 1){
+		return 0;
+	}
+	
+	msleep(1000); //等待1s
+	Timer.hopper_payout_timeout = 5000 + num * 250;
+	while(Timer.hopper_payout_timeout){
+		res = HP_send_check(hopper);
+		if(res == 1){ //找零完成
+			return hopper->lastCount;
+		}
+		msleep(100);
+	}
+	return 0;
+	
+}
+
 
 /*********************************************************************************************************
 ** Function name:     	HP_payout_by_level

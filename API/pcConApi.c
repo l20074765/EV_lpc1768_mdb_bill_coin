@@ -505,9 +505,12 @@ static uint8 MDB_getCoinStatus(void)
 				s |= COIN_BIT_DISABLE;
 			}
 		}
-		//temp = MDB_getCoinDispenser();
-		//if(temp == COIN_DISPENSER_HOPPER){
-		//}
+		
+		temp = MDB_getCoinDispenser();
+		if(temp == COIN_DISPENSER_HOPPER){ //hopper±Í÷æ
+			s |= COIN_BIT_HOPPER;
+		}
+
 	}
 	return s;
 }
@@ -1090,7 +1093,7 @@ static void DB_info_rpt()
 	}
 	//?????  1001
 	sendbuf[index++] = 0x10;
-	sendbuf[index++] = 0x01;
+	sendbuf[index++] = 0x03;
 	
 	sendbuf[index++] = 0;
 	sendbuf[index++] = 0;
@@ -1116,6 +1119,33 @@ static void DB_idSetRpt(void)
 	DB_uart1Send();
 
 }
+
+
+
+static void DB_hp_payout_rpt(void)
+{
+	uint8 in = MT + 1,out = MT + 2,i;
+	uint8 addr,res;
+	uint16 nums,changed = 0;
+	
+	addr = recvbuf[out++];
+	nums = INTEG16(recvbuf[out+0],recvbuf[out+1]);
+	
+	if(MDB_getCoinDispenser() == COIN_DISPENSER_HOPPER){
+		changed = HP_payout_by_no(addr,nums);
+	}
+	else{
+		changed = 0;
+	}
+	
+	sendbuf[in++] = MDB_HP_PAYOUT_RPT;
+	sendbuf[in++] = addr;
+	sendbuf[in++] =	changed;
+	DB_package(DB_MT_ACTION_RPT,in);
+	DB_uart1Send();
+	
+}
+
 
 /*********************************************************************************************************
 ** Function name:     	DB_task
@@ -1169,6 +1199,7 @@ uint8 DB_task(void)
 				case MDB_PAYOUT_REQ:	DB_payout_rpt();	break;
 				case MDB_COIN_CON_REQ:	DB_coin_con_rpt();	break;
 				case MDB_BILL_CON_REQ:	DB_bill_con_rpt();	break;
+				case MDB_HP_PAYOUT_REQ: DB_hp_payout_rpt();break;
 				default:	break;
 			}	
 		}

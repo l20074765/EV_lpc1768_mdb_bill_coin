@@ -8,6 +8,7 @@
 #define COIN_BIT_QUEBI						(0x01UL << 2) //È±±ÒÎ»
 #define COIN_BIT_BUSY						(0x01UL << 3) //Ó²±ÒÆ÷Ã¦Î»
 #define COIN_BIT_RESET						(0x01UL << 4) //Ó²±ÒÆ÷¸´Î»
+#define COIN_BIT_HOPPER						(0x01UL << 5) //hopper ±êÖ¾Î»
 #define COIN_BIT_OK							(0x01UL << 6) //Ó²±ÒÆ÷»Ö¸´
 #define COIN_BIT_PAYBACK					(0x01UL << 7) //ÍË±ÒÎ»
 

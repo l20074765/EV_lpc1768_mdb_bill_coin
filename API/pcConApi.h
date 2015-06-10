@@ -64,6 +64,8 @@
 #define 	MDB_BILL_CON_REQ 		0x07
 #define 	MDB_BILL_CON_RPT		0x07
 
+#define 	MDB_HP_PAYOUT_REQ 		0x08
+#define 	MDB_HP_PAYOUT_RPT		0x08
 
 
 #define 	MDB_FLASH_PAGE_ID	(0x200U) 

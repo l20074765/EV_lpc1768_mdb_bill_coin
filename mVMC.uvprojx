@@ -47,7 +47,7 @@
             <InvalidFlash>1</InvalidFlash>
           </TargetStatus>
           <OutputDirectory>.\Hex\</OutputDirectory>
-          <OutputName>EV_MDB_DRV_V1.2</OutputName>
+          <OutputName>EV_MDB_DRV_V1_4</OutputName>
           <CreateExecutable>1</CreateExecutable>
           <CreateLib>0</CreateLib>
           <CreateHexFile>1</CreateHexFile>
