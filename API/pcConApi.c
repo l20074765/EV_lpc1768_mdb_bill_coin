@@ -1124,8 +1124,8 @@ static void DB_idSetRpt(void)
 
 static void DB_hp_payout_rpt(void)
 {
-	uint8 in = MT + 1,out = MT + 2,i;
-	uint8 addr,res;
+	uint8 in = MT + 1,out = MT + 2;
+	uint8 addr;
 	uint16 nums,changed = 0;
 	
 	addr = recvbuf[out++];
@@ -1140,7 +1140,8 @@ static void DB_hp_payout_rpt(void)
 	
 	sendbuf[in++] = MDB_HP_PAYOUT_RPT;
 	sendbuf[in++] = addr;
-	sendbuf[in++] =	changed;
+	sendbuf[in++] =	HUINT16(changed);
+	sendbuf[in++] =	LUINT16(changed);
 	DB_package(DB_MT_ACTION_RPT,in);
 	DB_uart1Send();
 	
